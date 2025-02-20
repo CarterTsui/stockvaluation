@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Valuation - DCF Calculator</title>
+    <script>
+        async function fetchStockData() {
+            let stockSymbol = document.getElementById('stockSymbol').value.toUpperCase();
+            if (!stockSymbol) {
+                alert("Please enter a stock symbol.");
+                return;
+            }
+
+            // Update WSJ Link
+            document.getElementById('wsjLink').href = `https://www.wsj.com/market-data/quotes/${stockSymbol}/financials/annual/cash-flow`;
+            document.getElementById('wsjLink').style.display = "block";
+
+            const apiKey = "YDB5A7GD2PIHTE0J"; // Ensure this is a valid API key
+            const stockUrl = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${stockSymbol}&apikey=${apiKey}`;
+
+            try {
+                let stockResponse = await fetch(stockUrl);
+                let stockData = await stockResponse.json();
+                console.log("Stock Data:", stockData);
+
+                if (stockData && stockData.Beta) {
+                    document.getElementById('beta').value = parseFloat(stockData.Beta) || "";
+                } else {
+                    alert("Stock data not available. Check API key or try another stock symbol.");
+                    return;
+                }
+            } catch (error) {
+                console.error("Error fetching stock data:", error);
+                alert("Error fetching stock data. Please check the console for details.");
+            }
+        }
+
+        function calculateFCFPerShare() {
+            let freeCashFlow = parseFloat(document.getElementById('freeCashFlow').value);
+            let outstandingShares = parseFloat(document.getElementById('outstandingShares').value);
+
+            if (isNaN(freeCashFlow) || isNaN(outstandingShares) || outstandingShares <= 0) {
+                alert("Please enter valid numbers for Free Cash Flow and Outstanding Shares.");
+                return;
+            }
+
+            let fcfPerShare = freeCashFlow / outstandingShares;
+            document.getElementById('freeCashFlowPerShare').value = fcfPerShare.toFixed(2);
+        }
+
+        function calculateWACC() {
+            let beta = parseFloat(document.getElementById('beta').value);
+            let riskFreeRate = parseFloat(document.getElementById('riskFreeRate').value) / 100;
+            let marketPremium = parseFloat(document.getElementById('marketPremium').value) / 100;
+            let costDebt = parseFloat(document.getElementById('costDebt').value) / 100;
+            let totalDebt = parseFloat(document.getElementById('totalDebt').value);
+            let totalEquity = parseFloat(document.getElementById('totalEquity').value);
+            let taxRate = 0.21; // Default tax rate
+
+            if (isNaN(beta) || isNaN(riskFreeRate) || isNaN(marketPremium) || isNaN(costDebt) || isNaN(totalDebt) || isNaN(totalEquity)) {
+                alert("Please enter valid values for WACC calculation.");
+                return;
+            }
+
+            // Calculate Cost of Equity using CAPM Model
+            let costEquity = riskFreeRate + beta * marketPremium;
+            document.getElementById('costEquity').value = (costEquity * 100).toFixed(2); // Display in %
+
+            // Calculate weight ratios
+            let totalCapital = totalDebt + totalEquity;
+            let equityRatio = totalEquity / totalCapital;
+            let debtRatio = totalDebt / totalCapital;
+
+            // Calculate WACC
+            let wacc = (equityRatio * costEquity) + (debtRatio * costDebt * (1 - taxRate));
+            document.getElementById('wacc').value = (wacc * 100).toFixed(2);
+        }
+
+        function calculateDCF() {
+            let freeCashFlowPerShare = parseFloat(document.getElementById('freeCashFlowPerShare').value);
+            let discountRate = parseFloat(document.getElementById('wacc').value) / 100;
+            let growthRate = parseFloat(document.getElementById('growthRate').value) / 100;
+            let years = parseInt(document.getElementById('years').value);
+            let terminalGrowth = parseFloat(document.getElementById('terminalGrowth').value) / 100;
+
+            if (isNaN(freeCashFlowPerShare) || isNaN(discountRate) || isNaN(growthRate) || isNaN(years) || isNaN(terminalGrowth)) {
+                alert("Please enter valid values for DCF calculation.");
+                return;
+            }
+
+            let projectedCashFlows = [];
+            let totalDCF = 0;
+
+            for (let i = 1; i <= years; i++) {
+                freeCashFlowPerShare *= (1 + growthRate);
+                let discountedValue = freeCashFlowPerShare / Math.pow((1 + discountRate), i);
+                projectedCashFlows.push(discountedValue);
+                totalDCF += discountedValue;
+            }
+
+            let terminalValue = (freeCashFlowPerShare * (1 + terminalGrowth)) / (discountRate - terminalGrowth);
+            let discountedTerminalValue = terminalValue / Math.pow((1 + discountRate), years);
+
+            let intrinsicValue = totalDCF + discountedTerminalValue;
+
+            document.getElementById('result').innerText = intrinsicValue.toFixed(2);
+            console.log("Intrinsic Value Calculated:", intrinsicValue);
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>Discounted Cash Flow (DCF) Stock Valuation</h2>
+        <label>Stock Symbol:</label>
+        <input type="text" id="stockSymbol" placeholder="Enter Stock Symbol">
+        <button onclick="fetchStockData()">Fetch Data</button>
+        
+        <p><a id="wsjLink" href="#" target="_blank" style="display: none;">View Stock Financials on WSJ</a></p>
+
+        <label>Free Cash Flow:</label>
+        <input type="number" id="freeCashFlow" placeholder="Enter Free Cash Flow">
+        
+        <label>Outstanding Shares:</label>
+        <input type="number" id="outstandingShares" placeholder="Enter Outstanding Shares">
+        
+        <button onclick="calculateFCFPerShare()">Calculate FCF per Share</button>
+
+        <label>Free Cash Flow per Share:</label>
+        <input type="number" id="freeCashFlowPerShare" placeholder="Calculated FCF per Share" readonly>
+
+        <label>EBIT Growth Rate (%):</label>
+        <input type="number" id="growthRate" placeholder="Enter Growth Rate">
+        
+        <label>Number of Years for Projection:</label>
+        <input type="number" id="years" placeholder="Enter Projection Years">
+
+        <label>Terminal Growth Rate (%):</label>
+        <input type="number" id="terminalGrowth" placeholder="Enter Terminal Growth Rate">
+
+        <label>Stock Beta:</label>
+        <input type="number" id="beta" placeholder="Enter Beta">
+        
+        <label>Risk-Free Rate (%):</label>
+        <input type="number" id="riskFreeRate" placeholder="Enter Risk-Free Rate">
+        
+        <label>Market Risk Premium (%):</label>
+        <input type="number" id="marketPremium" placeholder="Enter Market Risk Premium">
+
+        <label>Cost of Equity (%):</label>
+        <input type="number" id="costEquity" placeholder="Calculated Cost of Equity" readonly>
+
+        <label>Cost of Debt (%):</label>
+        <input type="number" id="costDebt" placeholder="Enter Cost of Debt">
+
+        <label>Total Equity:</label>
+        <input type="number" id="totalEquity" placeholder="Enter Total Equity">
+
+        <label>Total Debt:</label>
+        <input type="number" id="totalDebt" placeholder="Enter Total Debt">
+
+        <label>WACC (%):</label>
+        <input type="number" id="wacc" placeholder="Calculated WACC" readonly>
+
+        <button onclick="calculateWACC()">Calculate WACC</button>
+        <button onclick="calculateDCF()">Calculate DCF</button>
+
+        <h3>Intrinsic Stock Value: <span id="result">N/A</span></h3>
+
+<div class="container" style="margin-top: 30px; text-align: left;">
+    <h3>📌 Instruction Guide (使用指南)</h3>
+    <p><strong>1)</strong> Input your stock code.</p>
+    <p><strong>2)</strong> Hit the "Fetch Data" button.</p>
+    <p><strong>3)</strong> Click on the WSJ link to find the required financial data.</p>
+    <p><strong>4)</strong> Find and input the following values from the WSJ webpage:</p>
+    <ul>
+        <li>Free Cash Flow</li>
+        <li>Outstanding Shares</li>
+    </ul>
+    <p><strong>5)</strong> Click "Calculate FCF per Share" to compute the value.</p>
+    <p><strong>6)</strong> Input your estimated growth rate (%). This is your prediction of how fast the company will grow.</p>
+    <p><strong>7)</strong> Input the number of years for the projected growth rate.</p>
+    <p><strong>8)</strong> Provide a terminal growth rate (usually suggested: <strong>2.5%</strong>).</p>
+    <p><strong>9)</strong> Input the risk-free rate, market risk premium (usually <strong>5.5%</strong>), and cost of debt.  
+       **(Cost of Debt represents the interest rate the company pays for its debt.)**</p>
+    <p><strong>10)</strong> Find and input the following values from the WSJ webpage:</p>
+    <ul>
+        <li>Total Equity</li>
+        <li>Total Debt</li>
+    </ul>
+    <p><strong>11)</strong> Click "Calculate WACC" to determine the discount rate.</p>
+    <p><strong>12)</strong> Click "Calculate DCF" to compute the intrinsic stock value.</p>
+
+    <h3>📌 使用指南 (Traditional Chinese 繁體中文)</h3>
+    <p><strong>1)</strong> 輸入您的股票代碼。</p>
+    <p><strong>2)</strong> 點擊 "Fetch Data" 按鈕獲取數據。</p>
+    <p><strong>3)</strong> 點擊 WSJ 網站鏈接，在網頁上查找所需的財務數據。</p>
+    <p><strong>4)</strong> 從 WSJ 頁面找到並輸入以下數據：</p>
+    <ul>
+        <li>自由現金流 (Free Cash Flow)</li>
+        <li>流通股數 (Outstanding Shares)</li>
+    </ul>
+    <p><strong>5)</strong> 點擊 "Calculate FCF per Share" 來計算每股自由現金流。</p>
+    <p><strong>6)</strong> 輸入您的預測增長率 (%)，這是您對公司業務增長速度的估計。</p>
+    <p><strong>7)</strong> 輸入該增長率持續的年數。</p>
+    <p><strong>8)</strong> 提供終端增長率 (通常建議 <strong>2.5%</strong>)。</p>
+    <p><strong>9)</strong> 輸入**無風險利率 (Risk-Free Rate)**，**市場風險溢價 (Market Risk Premium，通常 <strong>5.5%</strong>)**，以及**負債成本 (Cost of Debt)**。  
+       **(負債成本表示公司為其債務支付的利率。)**</p>
+    <p><strong>10)</strong> 從 WSJ 頁面找到並輸入以下數據：</p>
+    <ul>
+        <li>總股本 (Total Equity)</li>
+        <li>總負債 (Total Debt)</li>
+    </ul>
+    <p><strong>11)</strong> 點擊 "Calculate WACC" 來計算加權平均資本成本 (WACC)。</p>
+    <p><strong>12)</strong> 點擊 "Calculate DCF" 來計算股票的內在價值 (Intrinsic Stock Value)。</p>
+</div>   
+ </div>
+</body>
+</html>
