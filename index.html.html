@@ -78,36 +78,86 @@
         }
 
         function calculateDCF() {
+            // Use the calculated Free Cash Flow per Share
             let freeCashFlowPerShare = parseFloat(document.getElementById('freeCashFlowPerShare').value);
-            let discountRate = parseFloat(document.getElementById('wacc').value) / 100;
-            let growthRate = parseFloat(document.getElementById('growthRate').value) / 100;
-            let years = parseInt(document.getElementById('years').value);
+            let discountRate = parseFloat(document.getElementById('wacc').value) / 100; // WACC used as discount rate
+
+            // Three-stage growth rates
+            let growthRate1 = parseFloat(document.getElementById('growthRate1').value) / 100;
+            let growthRate2 = parseFloat(document.getElementById('growthRate2').value) / 100;
+            let growthRate3 = parseFloat(document.getElementById('growthRate3').value) / 100;
             let terminalGrowth = parseFloat(document.getElementById('terminalGrowth').value) / 100;
 
-            if (isNaN(freeCashFlowPerShare) || isNaN(discountRate) || isNaN(growthRate) || isNaN(years) || isNaN(terminalGrowth)) {
+            // Projection period is fixed at 10 years in three stages:
+            // Stage 1: Years 1-3, Stage 2: Years 4-7, Stage 3: Years 8-10
+            let years = 10;
+
+            if (isNaN(freeCashFlowPerShare) || isNaN(discountRate) ||
+                isNaN(growthRate1) || isNaN(growthRate2) || isNaN(growthRate3) ||
+                isNaN(terminalGrowth)) {
                 alert("Please enter valid values for DCF calculation.");
                 return;
             }
 
-            let projectedCashFlows = [];
             let totalDCF = 0;
+            let fcf = freeCashFlowPerShare; // starting value
 
+            // Calculate projected cash flows by stage
             for (let i = 1; i <= years; i++) {
-                freeCashFlowPerShare *= (1 + growthRate);
-                let discountedValue = freeCashFlowPerShare / Math.pow((1 + discountRate), i);
-                projectedCashFlows.push(discountedValue);
+                if (i <= 3) {
+                    fcf *= (1 + growthRate1);
+                } else if (i <= 7) {
+                    fcf *= (1 + growthRate2);
+                } else {
+                    fcf *= (1 + growthRate3);
+                }
+                let discountedValue = fcf / Math.pow((1 + discountRate), i);
                 totalDCF += discountedValue;
             }
 
-            let terminalValue = (freeCashFlowPerShare * (1 + terminalGrowth)) / (discountRate - terminalGrowth);
+            // Calculate Terminal Value using the last year's FCF after stage 3 growth
+            let terminalValue = (fcf * (1 + terminalGrowth)) / (discountRate - terminalGrowth);
             let discountedTerminalValue = terminalValue / Math.pow((1 + discountRate), years);
 
             let intrinsicValue = totalDCF + discountedTerminalValue;
-
             document.getElementById('result').innerText = intrinsicValue.toFixed(2);
             console.log("Intrinsic Value Calculated:", intrinsicValue);
         }
     </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        input {
+            width: 90%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -129,15 +179,19 @@
         <label>Free Cash Flow per Share:</label>
         <input type="number" id="freeCashFlowPerShare" placeholder="Calculated FCF per Share" readonly>
 
-        <label>EBIT Growth Rate (%):</label>
-        <input type="number" id="growthRate" placeholder="Enter Growth Rate">
+        <!-- Three-Stage Growth Rates -->
+        <label>Growth Rate Stage 1 (Years 1-3) (%):</label>
+        <input type="number" id="growthRate1" placeholder="Enter Growth Rate for Years 1-3">
         
-        <label>Number of Years for Projection:</label>
-        <input type="number" id="years" placeholder="Enter Projection Years">
-
+        <label>Growth Rate Stage 2 (Years 4-7) (%):</label>
+        <input type="number" id="growthRate2" placeholder="Enter Growth Rate for Years 4-7">
+        
+        <label>Growth Rate Stage 3 (Years 8-10) (%):</label>
+        <input type="number" id="growthRate3" placeholder="Enter Growth Rate for Years 8-10">
+        
         <label>Terminal Growth Rate (%):</label>
         <input type="number" id="terminalGrowth" placeholder="Enter Terminal Growth Rate">
-
+        
         <label>Stock Beta:</label>
         <input type="number" id="beta" placeholder="Enter Beta">
         
@@ -161,11 +215,14 @@
 
         <label>WACC (%):</label>
         <input type="number" id="wacc" placeholder="Calculated WACC" readonly>
-
+        
         <button onclick="calculateWACC()">Calculate WACC</button>
         <button onclick="calculateDCF()">Calculate DCF</button>
-
+        
         <h3>Intrinsic Stock Value: <span id="result">N/A</span></h3>
+    </div>
+
+
 
 <div class="container" style="margin-top: 30px; text-align: left;">
     <h3>📌 Instruction Guide (使用指南)</h3>
